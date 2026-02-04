@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.1",
-    "@apollo/server": "^4.12.2",
+    "@apollo/server": "^5.4.0",
     "@cfworker/json-schema": "^4.1.1",
     "@google/generative-ai": "^0.24.1",
     "@graphql-tools/schema": "^10.0.30",
