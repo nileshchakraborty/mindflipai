@@ -48,7 +48,7 @@
     "@vercel/blob": "^2.0.0",
     "@vercel/speed-insights": "^1.2.0",
     "@xenova/transformers": "^2.17.2",
-    "axios": "^1.13.2",
+    "axios": "^1.13.5",
     "body-parser": "^2.2.1",
     "bullmq": "^5.64.1",
     "cheerio": "^1.1.2",
