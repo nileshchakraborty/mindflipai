@@ -24,6 +24,6 @@ module.exports = {
         ],
     },
     transformIgnorePatterns: [
-        'node_modules/(?!(uuid|@apollo|@modelcontextprotocol)/)'
+        'node_modules/(?!(uuid|@apollo|@modelcontextprotocol|langchain|@langchain)/)'
     ],
 };

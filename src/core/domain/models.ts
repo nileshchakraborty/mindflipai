@@ -11,6 +11,10 @@ export interface Flashcard {
     readonly type?: string;
     readonly url?: string;
   };
+  // Source tracking for generated flashcards
+  readonly sourceType?: 'upload' | 'text' | 'urls' | 'ai';
+  readonly sourceName?: string;
+  readonly sourceUrls?: readonly string[];
 }
 
 export interface QuizQuestion {

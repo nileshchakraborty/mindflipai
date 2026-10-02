@@ -61,6 +61,21 @@ export const typeDefs = `#graphql
     FAILED
   }
 
+  # Dead Letter Queue Job
+  type DLQJob {
+    id: ID!
+    originalJobId: ID!
+    error: String!
+    timestamp: Float!
+    data: JSON
+  }
+
+  type DLQStats {
+    count: Int!
+    oldestTimestamp: Float
+    newestTimestamp: Float
+  }
+
   # Generation types
   type GenerateResult {
     cards: [Flashcard!]
@@ -75,6 +90,8 @@ export const typeDefs = `#graphql
     mode: String = "standard"
     knowledgeSource: String = "ai-web"
     parentTopic: String
+    inputType: String
+    content: JSON
   }
 
   input DeckInput {
@@ -90,6 +107,7 @@ export const typeDefs = `#graphql
 
   input QuizInput {
     cards: [FlashcardInput!]
+    cardIds: [ID!]
     topic: String
     count: Int = 5
   }
@@ -115,6 +133,10 @@ export const typeDefs = `#graphql
     job(id: ID!): Job
     queueStats: JSON
     
+    # Dead Letter Queue
+    dlqStats: DLQStats!
+    dlqJobs(limit: Int = 10): [DLQJob!]!
+    
     # Health
     health: JSON!
   }
@@ -129,6 +151,10 @@ export const typeDefs = `#graphql
     # Quiz operations
     createQuiz(input: QuizInput!): Quiz!
     submitQuizAnswer(quizId: ID!, answers: [QuizAnswerInput!]!): QuizResult!
+    
+    # DLQ operations
+    retryDLQJob(dlqJobId: ID!): ID
+    purgeDLQ: Int!
   }
 
   # Subscriptions for real-time updates

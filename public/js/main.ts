@@ -41,6 +41,52 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize Vercel Web Analytics
   inject();
 
+  // Mobile header menu toggle (for settings/logout only)
+  const headerToggle = document.getElementById('header-menu-toggle');
+  const mobileSettingsMenu = document.getElementById('mobile-settings-menu');
+  if (headerToggle && mobileSettingsMenu) {
+    headerToggle.addEventListener('click', () => {
+      mobileSettingsMenu.classList.toggle('hidden');
+      const icon = headerToggle.querySelector('.material-icons');
+      if (icon) {
+        icon.textContent = mobileSettingsMenu.classList.contains('hidden') ? 'more_vert' : 'close';
+      }
+    });
+  }
+
+  // Wire up mobile settings button to trigger desktop settings
+  const settingsBtnMobile = document.getElementById('settings-btn-mobile');
+  const settingsBtnDesktop = document.getElementById('settings-btn');
+  if (settingsBtnMobile && settingsBtnDesktop) {
+    settingsBtnMobile.addEventListener('click', () => {
+      mobileSettingsMenu?.classList.add('hidden');
+      settingsBtnDesktop.click();
+    });
+  }
+
+  // Wire up mobile auth button to trigger desktop auth
+  const authBtnMobile = document.getElementById('auth-btn-mobile');
+  const authBtnDesktop = document.getElementById('auth-btn');
+  if (authBtnMobile && authBtnDesktop) {
+    authBtnMobile.addEventListener('click', () => {
+      mobileSettingsMenu?.classList.add('hidden');
+      authBtnDesktop.click();
+    });
+  }
+
+  // Mobile nav hamburger toggle
+  const navToggle = document.getElementById('nav-toggle');
+  const mobileNav = document.getElementById('mobile-nav');
+  if (navToggle && mobileNav) {
+    navToggle.addEventListener('click', () => {
+      mobileNav.classList.toggle('hidden');
+      const icon = navToggle.querySelector('.material-icons');
+      if (icon) {
+        icon.textContent = mobileNav.classList.contains('hidden') ? 'menu' : 'close';
+      }
+    });
+  }
+
   // Capture token from OAuth redirect (?token=...) before anything else
   const urlParams = new URLSearchParams(window.location.search);
   const tokenFromUrl = urlParams.get('token');
@@ -188,15 +234,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   renderAuthState();
-
-  // Hamburger toggle
-  const navToggle = document.getElementById('nav-toggle');
-  const navLinks = document.getElementById('nav-links');
-  navToggle?.addEventListener('click', () => {
-    navLinks?.classList.toggle('hidden');
-    navLinks?.classList.toggle('flex');
-    navLinks?.classList.toggle('flex-col');
-  });
 
   // Expose eventBus for inline handlers (legacy refresh button)
   (window as any).eventBus = eventBus;

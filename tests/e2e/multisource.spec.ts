@@ -8,6 +8,11 @@ test.describe('Multi-Source Card Creation', () => {
         page.on('console', msg => console.log(`[Browser Console]: ${msg.text()}`));
         page.on('pageerror', err => console.log(`[Browser Error]: ${err}`));
         page.on('request', request => console.log(`[Network Request]: ${request.method()} ${request.url()}`));
+        page.on('response', response => {
+            if (response.status() === 401) {
+                console.log(`[401 Response]: ${response.url()}`);
+            }
+        });
 
         // 1. Navigate to the app initially
         await page.goto('/');
@@ -15,11 +20,55 @@ test.describe('Multi-Source Card Creation', () => {
         // 2. Set authentication token in localStorage
         await page.evaluate(() => {
             localStorage.setItem('authToken', 'test-token');
+            localStorage.setItem('TEST_AUTH', 'true');
             localStorage.setItem('user', JSON.stringify({
                 id: 'test-user-123',
                 email: 'test@example.com',
                 name: 'Test User'
             }));
+        });
+
+        // Mock LLM status to prevent 401 logout
+        await page.route('**/api/llm/status', async route => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ isWarmedUp: true, isWarmingUp: false })
+            });
+        });
+
+        // Mock default GraphQL responses for initialization
+        await page.route('**/graphql', async route => {
+            const request = route.request();
+            const postData = request.postDataJSON();
+
+            if (postData.operationName === 'GetDecks') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ data: { decks: [] } })
+                });
+                return;
+            }
+            if (postData.operationName === 'GetAllQuizzes') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ data: { allQuizzes: [] } })
+                });
+                return;
+            }
+            if (postData.operationName === 'GetQuizHistory') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ data: { quizHistory: [] } })
+                });
+                return;
+            }
+
+            // Allow tests to override or handle specific mutations
+            await route.fallback();
         });
 
         // 3. Reload the page to trigger DOMContentLoaded with auth state
@@ -59,29 +108,93 @@ test.describe('Multi-Source Card Creation', () => {
         await page.fill('#raw-text-input', 'Photosynthesis is the process...');
         await page.fill('#text-topic', 'Biology 101');
 
-        // 4. Submit
-        await page.route('**/api/generate/from-content', async route => {
-            console.log('Intercepted /api/generate/from-content request');
-            await route.fulfill({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify({
-                    success: true,
-                    cards: [
-                        { id: '1', front: 'What is photosynthesis?', back: 'Process used by plants to convert light energy into chemical energy.', topic: 'Biology 101' },
-                        { id: '2', front: 'What are the inputs of photosynthesis?', back: 'Sunlight, water, and carbon dioxide.', topic: 'Biology 101' }
-                    ]
-                })
-            });
+        // 4. Submit (Intercept GraphQL check for operationName)
+        await page.route('**/graphql', async route => {
+            const request = route.request();
+            const postData = request.postDataJSON();
+
+            if (postData.operationName === 'GenerateFlashcards') {
+                console.log('Intercepted GraphQL GenerateFlashcards');
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                        data: {
+                            generateFlashcards: {
+                                cards: [
+                                    { id: '1', front: 'What is photosynthesis?', back: 'Process used by plants to convert light energy into chemical energy.', topic: 'Biology 101' },
+                                    { id: '2', front: 'What are the inputs of photosynthesis?', back: 'Sunlight, water, and carbon dioxide.', topic: 'Biology 101' }
+                                ],
+                                jobId: null,
+                                recommendedTopics: []
+                            }
+                        }
+                    })
+                });
+                return;
+            }
+
+            // Pass through other GraphQL requests or mock them if needed
+            // For this test, likely Decks/Quiz are also GraphQL now?
+            // The tests below mock /api/decks and /api/quiz.
+            // Client is now using GraphQL for decks and quizzes too!
+            // I need to update those mocks too.
+            if (postData.operationName === 'CreateDeck') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                        data: {
+                            createDeck: { id: 'deck-123', topic: 'Biology 101', cards: [], timestamp: Date.now() }
+                        }
+                    })
+                });
+                return;
+            }
+
+            if (postData.operationName === 'CreateQuiz') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                        data: {
+                            createQuiz: { id: 'quiz-123', topic: 'Biology 101', questionCount: 0, source: 'topic', createdAt: new Date().toISOString() }
+                        }
+                    })
+                });
+                return;
+            }
+
+            if (postData.operationName === 'GetDecks') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                        data: {
+                            decks: []
+                        }
+                    })
+                });
+                return;
+            }
+
+            if (postData.operationName === 'GetAllQuizzes') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                        data: {
+                            allQuizzes: []
+                        }
+                    })
+                });
+                return;
+            }
+
+            await route.fallback();
         });
 
-        // Mock saveDeck and quiz calls (AppController makes these)
-        await page.route('**/api/decks', async route => {
-            await route.fulfill({ status: 200, body: JSON.stringify({ success: true, id: 'deck-123' }) });
-        });
-        await page.route('**/api/quiz', async route => {
-            await route.fulfill({ status: 200, body: JSON.stringify({ success: true, questions: [] }) });
-        });
+
 
         const generateBtn = textForm.locator('button[type="submit"]');
         await generateBtn.click();
@@ -106,26 +219,48 @@ test.describe('Multi-Source Card Creation', () => {
         await page.fill('#urls-input', 'https://example.com/topic1\nhttps://example.com/topic2');
         await page.fill('#urls-topic', 'Web Research');
 
-        // 4. Submit (Intercept API)
-        await page.route('**/api/generate/from-content', async route => {
-            console.log('Intercepted /api/generate/from-content (URLs) request');
-            await route.fulfill({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify({
-                    success: true,
-                    cards: [
-                        { id: '3', front: 'Question from URL?', back: 'Answer from URL.', topic: 'Web Research' }
-                    ]
-                })
-            });
-        });
+        // 4. Submit (Intercept GraphQL)
+        await page.route('**/graphql', async route => {
+            const request = route.request();
+            const postData = request.postDataJSON();
 
-        await page.route('**/api/decks', async route => {
-            await route.fulfill({ status: 200, body: JSON.stringify({ success: true, id: 'deck-456' }) });
-        });
-        await page.route('**/api/quiz', async route => {
-            await route.fulfill({ status: 200, body: JSON.stringify({ success: true, questions: [] }) });
+            console.log(`[GraphQL Intercept] Op: ${postData.operationName}`);
+
+            if (postData.operationName === 'GenerateFlashcards' || postData.query.includes('mutation GenerateFlashcards')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                        data: {
+                            generateFlashcards: {
+                                cards: [
+                                    { id: '3', front: 'Question from URL?', back: 'Answer from URL.', topic: 'Web Research' }
+                                ],
+                                jobId: null,
+                                recommendedTopics: []
+                            }
+                        }
+                    })
+                });
+                return;
+            }
+            if (postData.operationName === 'CreateDeck') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ data: { createDeck: { id: 'deck-456' } } })
+                });
+                return;
+            }
+            if (postData.operationName === 'CreateQuiz') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ data: { createQuiz: { id: 'quiz-456' } } })
+                });
+                return;
+            }
+            await route.fallback();
         });
 
         const generateBtn = urlsForm.locator('button[type="submit"]');
@@ -148,6 +283,9 @@ test.describe('Multi-Source Card Creation', () => {
         await expect(page.locator('#selected-files')).not.toHaveClass(/hidden/);
 
         // Mock upload response
+        // Upload test uses /api/upload which IS REST, so we keep that mock.
+        // But Decks and Quiz are now GraphQL.
+
         await page.route('**/api/upload', async route => {
             console.log('Intercepted /api/upload request');
             await route.fulfill({
@@ -159,11 +297,27 @@ test.describe('Multi-Source Card Creation', () => {
             });
         });
 
-        await page.route('**/api/decks', async route => {
-            await route.fulfill({ status: 200, body: JSON.stringify({ success: true, id: 'deck-docx' }) });
-        });
-        await page.route('**/api/quiz', async route => {
-            await route.fulfill({ status: 200, body: JSON.stringify({ success: true, questions: [] }) });
+        await page.route('**/graphql', async route => {
+            const request = route.request();
+            const postData = request.postDataJSON();
+
+            if (postData.operationName === 'CreateDeck') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ data: { createDeck: { id: 'deck-docx' } } })
+                });
+                return;
+            }
+            if (postData.operationName === 'CreateQuiz') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ data: { createQuiz: { id: 'quiz-docx' } } })
+                });
+                return;
+            }
+            await route.fallback();
         });
 
         const uploadBtn = page.locator('#upload-form button[type="submit"]');
@@ -189,21 +343,43 @@ test.describe('Multi-Source Card Creation', () => {
         await page.fill('#raw-text-input', fileContent.substring(0, 1000));
         await page.fill('#text-topic', 'Poetry Life');
 
-        await page.route('**/api/generate/from-content', async route => {
-            await route.fulfill({
-                status: 200,
-                body: JSON.stringify({
-                    success: true,
-                    cards: [{ id: 'text-1', front: 'Who is Stanton?', back: 'Examples of poets.', topic: 'Poetry Life' }]
-                })
-            });
-        });
+        await page.route('**/graphql', async route => {
+            const request = route.request();
+            const postData = request.postDataJSON();
 
-        await page.route('**/api/decks', async route => {
-            await route.fulfill({ status: 200, body: JSON.stringify({ success: true, id: 'deck-text' }) });
-        });
-        await page.route('**/api/quiz', async route => {
-            await route.fulfill({ status: 200, body: JSON.stringify({ success: true, questions: [] }) });
+            if (postData.operationName === 'GenerateFlashcards') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                        data: {
+                            generateFlashcards: {
+                                cards: [{ id: 'text-1', front: 'Who is Stanton?', back: 'Examples of poets.', topic: 'Poetry Life' }],
+                                jobId: null,
+                                recommendedTopics: []
+                            }
+                        }
+                    })
+                });
+                return;
+            }
+            if (postData.operationName === 'CreateDeck') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ data: { createDeck: { id: 'deck-text' } } })
+                });
+                return;
+            }
+            if (postData.operationName === 'CreateQuiz') {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ data: { createQuiz: { id: 'quiz-text' } } })
+                });
+                return;
+            }
+            await route.continue();
         });
 
         const generateBtn = page.locator('#text-form button[type="submit"]');

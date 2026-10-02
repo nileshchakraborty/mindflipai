@@ -37,6 +37,7 @@ describe('StudyService', () => {
       mockStorageAdapter,
       undefined, // metricsService
       undefined, // webContextCache
+      undefined, // ragService
       true // disableAsyncRecommendations - prevent background tasks in tests
     );
   });

@@ -12,6 +12,8 @@ import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
 // @ts-ignore
 import mammoth from 'mammoth';
+import { RAGWorkflow } from '../workflows/RAGWorkflow.js';
+import { RAGService } from './RAGService.js';
 
 
 import * as cheerio from 'cheerio';
@@ -93,6 +95,16 @@ export class StudyService implements StudyUseCase {
 
       const sourceMeta: any = { sourceType: 'upload', sourceName: filename };
 
+      // Optional: Ingest into RAG system if available
+      if (this.ragService) {
+        try {
+          await this.ragService.ingestContent(topic, text, { filename, mimeType });
+          console.log(`[StudyService] Ingested content for topic "${topic}" into RAG.`);
+        } catch (ingestErr) {
+          console.warn('[StudyService] RAG Ingestion failed (non-blocking):', ingestErr);
+        }
+      }
+
       // Primary generation
       try {
         const cards = await this.getAdapter('ollama').generateFlashcardsFromText(text, topic, 10, { filename });
@@ -146,6 +158,7 @@ export class StudyService implements StudyUseCase {
     private storageAdapter: StoragePort,
     private metricsService?: MetricsService,
     private webContextCache?: CacheService<string>,
+    private ragService?: RAGService,
     disableAsyncRecommendations: boolean = process.env.NODE_ENV === 'test'
   ) {
     this.disableAsyncRecommendations = disableAsyncRecommendations;
@@ -280,6 +293,12 @@ export class StudyService implements StudyUseCase {
       } catch (e) {
         throw new Error(`Failed to generate flashcards from AI knowledge: ${(e as Error).message}`);
       }
+    } else if (knowledgeSource === 'rag') {
+      if (!this.ragService) throw new Error('RAG Service not initialized');
+      console.log('1. RAG Mode: Retrieving from Knowledge Graph & Vector Store...');
+      const workflow = new RAGWorkflow(this.ragService, _aiAdapter);
+      const cards = await workflow.run(topic, count);
+      return { cards };
     } else if (knowledgeSource === 'web-only') {
       console.log('1. Fetching web context (web-only mode)...');
       scrapedContent = await this.getCachedOrFreshWebContext(topic, parentTopic);

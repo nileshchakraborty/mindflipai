@@ -68,6 +68,29 @@ export class UpstashVectorService {
     }
 
     /**
+     * Batch upsert flashcards
+     */
+    async upsertFlashcards(
+        items: Array<{ id: string; text: string; metadata: Record<string, any> }>
+    ): Promise<void> {
+        if (!this.isInitialized || !this.index) return;
+        if (items.length === 0) return;
+
+        try {
+            await this.index.upsert(
+                items.map(item => ({
+                    id: item.id,
+                    data: item.text,
+                    metadata: item.metadata
+                }))
+            );
+            logger.debug(`Batch indexed ${items.length} flashcards`);
+        } catch (error: any) {
+            logger.warn(`Failed to batch index flashcards:`, error.message);
+        }
+    }
+
+    /**
      * Search for similar flashcards using semantic search
      */
     async searchSimilar(

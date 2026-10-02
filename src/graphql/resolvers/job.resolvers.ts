@@ -38,6 +38,40 @@ export const jobResolvers = {
                 error: (job as QueueJobStatus).error ?? null,
                 progress: (job as QueueJobStatus).progress ?? 0
             };
+        },
+
+        dlqStats: async (_: unknown, __: unknown, context: GraphQLContext) => {
+            const { queueService } = context;
+            if (!queueService) {
+                throw new Error('Queue service not available');
+            }
+            return queueService.getDLQStats();
+        },
+
+        dlqJobs: async (_: unknown, { limit }: { limit?: number }, context: GraphQLContext) => {
+            const { queueService } = context;
+            if (!queueService) {
+                throw new Error('Queue service not available');
+            }
+            return queueService.getDLQJobs(limit || 10);
+        }
+    },
+
+    Mutation: {
+        retryDLQJob: async (_: unknown, { dlqJobId }: { dlqJobId: string }, context: GraphQLContext) => {
+            const { queueService } = context;
+            if (!queueService) {
+                throw new Error('Queue service not available');
+            }
+            return queueService.retryDLQJob(dlqJobId);
+        },
+
+        purgeDLQ: async (_: unknown, __: unknown, context: GraphQLContext) => {
+            const { queueService } = context;
+            if (!queueService) {
+                throw new Error('Queue service not available');
+            }
+            return queueService.purgeDLQ();
         }
     },
 

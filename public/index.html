@@ -128,51 +128,105 @@
     <div id="app-content" class="hidden">
         <!-- Header -->
         <header class="glass-panel shadow-sm border-b-0 sticky top-0 z-20">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                <div class="flex flex-wrap items-center gap-4 lg:gap-6 lg:flex-nowrap">
-                    <!-- Brand block -->
-                    <div class="flex-shrink-0 min-w-[260px] flex items-center gap-3">
-                        <img src="/assets/icons/logo.jpg" alt="MindFlip AI" class="w-16 h-16 rounded-xl shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+                <!-- Row 1: Logo + Hamburger -->
+                <div class="flex items-center justify-between">
+                    <!-- Brand -->
+                    <div class="flex items-center gap-3">
+                        <img src="/assets/icons/logo.jpg" alt="MindFlip AI"
+                            class="w-10 h-10 md:w-12 md:h-12 rounded-xl shadow-lg">
                         <div>
-                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">AI-Powered Study
-                                Helper
-                            </p>
-                            <h1 class="text-3xl font-bold text-primary leading-tight">MindFlip AI</h1>
-                            <p class="text-gray-600 max-w-xl text-sm">Don't Just Study. MindFlip.</p>
+                            <p
+                                class="text-[10px] md:text-xs font-semibold text-gray-400 uppercase tracking-wider hidden md:block">
+                                AI-Powered Study Helper</p>
+                            <h1
+                                class="text-lg md:text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent leading-tight">
+                                MindFlip AI</h1>
                         </div>
                     </div>
 
-                    <!-- Stats pills inline -->
-                    <div class="flex-1 min-w-[320px] flex flex-nowrap items-center gap-3 lg:gap-4 overflow-x-auto">
-                        <div
-                            class="min-w-[120px] bg-gradient-to-br from-red-50 to-pink-50 px-4 py-3 rounded-2xl border border-red-100 shadow-sm flex flex-col justify-center shrink-0">
-                            <span class="text-xs font-semibold text-red-600 uppercase tracking-wide">Review</span>
-                            <span class="text-2xl font-bold text-red-700 leading-tight" id="left-count">0</span>
-                        </div>
-                        <div
-                            class="min-w-[120px] bg-gradient-to-br from-green-50 to-emerald-50 px-4 py-3 rounded-2xl border border-green-100 shadow-sm flex flex-col justify-center shrink-0">
-                            <span class="text-xs font-semibold text-green-600 uppercase tracking-wide">Mastered</span>
-                            <span class="text-2xl font-bold text-green-700 leading-tight" id="right-count">0</span>
-                        </div>
-                        <div
-                            class="min-w-[170px] bg-gradient-to-br from-blue-50 to-indigo-50 px-4 py-3 rounded-2xl border border-blue-100 shadow-sm flex flex-col justify-center shrink-0">
-                            <span class="text-xs font-semibold text-blue-600 uppercase tracking-wide">Remaining</span>
-                            <span class="text-2xl font-bold text-blue-700 leading-tight" id="cards-remaining">0</span>
-                        </div>
-                    </div>
-
-                    <!-- Controls -->
-                    <div class="flex items-center gap-3 flex-shrink-0">
+                    <!-- Desktop controls (visible on md+) -->
+                    <div class="hidden md:flex items-center gap-3">
                         <button id="settings-btn"
-                            class="bg-white text-gray-800 hover:bg-gradient-to-r hover:from-gray-50 hover:to-indigo-50 font-medium py-2.5 px-4 rounded-xl border border-gray-200 hover:border-indigo-200 transition-all flex items-center gap-2 shadow-sm hover:shadow-md">
-                            <span class="material-icons text-base">settings</span>
+                            class="bg-white/80 backdrop-blur text-gray-700 hover:bg-white font-medium py-2 px-4 rounded-xl border border-gray-200 hover:border-indigo-300 transition-all flex items-center gap-2 shadow-sm hover:shadow-md">
+                            <span class="material-icons text-lg text-gray-500">settings</span>
                             Settings
                         </button>
                         <button id="auth-btn"
-                            class="bg-white text-gray-800 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 font-medium py-2.5 px-5 rounded-xl border border-gray-200 hover:border-blue-200 transition-all flex items-center gap-2 shadow-sm hover:shadow-md">
+                            class="bg-white/80 backdrop-blur text-gray-700 hover:bg-white font-medium py-2 px-4 rounded-xl border border-gray-200 hover:border-blue-300 transition-all flex items-center gap-2 shadow-sm hover:shadow-md">
                             <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5"
                                 alt="Google">
                             <span id="auth-btn-label">Login</span>
+                        </button>
+                    </div>
+
+                    <!-- Mobile hamburger (for settings/logout only) -->
+                    <button id="header-menu-toggle"
+                        class="md:hidden p-2.5 rounded-xl border border-gray-200 shadow-sm bg-white/80 backdrop-blur hover:bg-white transition-all"
+                        aria-label="Menu">
+                        <span class="material-icons text-gray-600">more_vert</span>
+                    </button>
+                </div>
+
+                <!-- Row 2: Premium Stats (ALWAYS visible) -->
+                <div class="mt-3 grid grid-cols-3 gap-2 md:gap-4">
+                    <!-- Review -->
+                    <div
+                        class="relative overflow-hidden bg-gradient-to-br from-rose-500 to-pink-600 rounded-2xl p-3 md:p-4 shadow-lg shadow-rose-500/20">
+                        <div class="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                        <div class="relative z-10">
+                            <span
+                                class="text-[10px] md:text-xs font-bold text-rose-100 uppercase tracking-wider">Review</span>
+                            <div class="text-2xl md:text-3xl font-black text-white leading-none mt-1" id="left-count">0
+                            </div>
+                        </div>
+                        <div class="absolute -right-2 -bottom-2 w-12 h-12 md:w-16 md:h-16 rounded-full bg-white/10">
+                        </div>
+                    </div>
+
+                    <!-- Mastered -->
+                    <div
+                        class="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl p-3 md:p-4 shadow-lg shadow-emerald-500/20">
+                        <div class="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                        <div class="relative z-10">
+                            <span
+                                class="text-[10px] md:text-xs font-bold text-emerald-100 uppercase tracking-wider">Mastered</span>
+                            <div class="text-2xl md:text-3xl font-black text-white leading-none mt-1" id="right-count">0
+                            </div>
+                        </div>
+                        <div class="absolute -right-2 -bottom-2 w-12 h-12 md:w-16 md:h-16 rounded-full bg-white/10">
+                        </div>
+                    </div>
+
+                    <!-- Remaining -->
+                    <div
+                        class="relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-3 md:p-4 shadow-lg shadow-blue-500/20">
+                        <div class="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                        <div class="relative z-10">
+                            <span
+                                class="text-[10px] md:text-xs font-bold text-blue-100 uppercase tracking-wider">Remaining</span>
+                            <div class="text-2xl md:text-3xl font-black text-white leading-none mt-1"
+                                id="cards-remaining">0</div>
+                        </div>
+                        <div class="absolute -right-2 -bottom-2 w-12 h-12 md:w-16 md:h-16 rounded-full bg-white/10">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mobile dropdown menu (settings/logout only) -->
+                <div id="mobile-settings-menu"
+                    class="hidden md:hidden mt-3 p-3 bg-white/90 backdrop-blur rounded-xl border border-gray-200 shadow-lg">
+                    <div class="flex flex-col gap-2">
+                        <button id="settings-btn-mobile"
+                            class="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium py-3 px-4 rounded-xl transition-all flex items-center gap-3">
+                            <span class="material-icons text-gray-500">settings</span>
+                            Settings
+                        </button>
+                        <button id="auth-btn-mobile"
+                            class="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium py-3 px-4 rounded-xl transition-all flex items-center gap-3">
+                            <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5"
+                                alt="Google">
+                            <span id="auth-btn-label-mobile">Logout</span>
                         </button>
                     </div>
                 </div>
@@ -184,11 +238,13 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between py-2 lg:py-0">
                     <div class="flex lg:hidden">
-                        <button id="nav-toggle" class="p-2 rounded-lg border border-gray-200 shadow-sm">
+                        <button id="nav-toggle"
+                            class="p-2 rounded-lg border border-gray-200 shadow-sm bg-white hover:bg-gray-50">
                             <span class="material-icons">menu</span>
                         </button>
                     </div>
-                    <div id="nav-links" class="flex space-x-1 w-full lg:w-auto lg:flex lg:space-x-1 lg:items-center">
+                    <!-- Hidden on mobile, shown when hamburger clicked -->
+                    <div id="nav-links" class="hidden lg:flex space-x-1 w-full lg:w-auto lg:space-x-1 lg:items-center">
                         <button class="nav-tab px-4 lg:px-6 py-3 lg:py-4 text-sm font-medium transition-colors"
                             data-tab="study">
                             <span class="material-icons align-middle mr-2">school</span>
@@ -207,6 +263,31 @@
                         </button>
                         <button
                             class="nav-tab px-4 lg:px-6 py-3 lg:py-4 text-sm font-medium transition-colors text-center"
+                            data-tab="quiz">
+                            <span class="material-icons align-middle mr-2">quiz</span>
+                            Quiz
+                        </button>
+                    </div>
+                </div>
+                <!-- Mobile nav dropdown -->
+                <div id="mobile-nav" class="lg:hidden hidden pb-3 border-t border-gray-200 mt-2 pt-3">
+                    <div class="flex flex-col space-y-1">
+                        <button class="nav-tab px-4 py-3 text-sm font-medium transition-colors text-left"
+                            data-tab="study">
+                            <span class="material-icons align-middle mr-2">school</span>
+                            Study
+                        </button>
+                        <button class="nav-tab px-4 py-3 text-sm font-medium transition-colors text-left"
+                            data-tab="create">
+                            <span class="material-icons align-middle mr-2">add_circle</span>
+                            Create Cards
+                        </button>
+                        <button class="nav-tab px-4 py-3 text-sm font-medium transition-colors text-left"
+                            data-tab="create-quiz">
+                            <span class="material-icons align-middle mr-2">add</span>
+                            Create Quiz
+                        </button>
+                        <button class="nav-tab px-4 py-3 text-sm font-medium transition-colors text-left"
                             data-tab="quiz">
                             <span class="material-icons align-middle mr-2">quiz</span>
                             Quiz

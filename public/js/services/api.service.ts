@@ -62,14 +62,7 @@ export class ApiService {
   constructor(baseUrl = '/api') {
     this.baseUrl = baseUrl;
 
-    // Feature flag: check localStorage first, then environment
-    const localStorageFlag = localStorage.getItem('USE_GRAPHQL');
-    if (localStorageFlag !== null) {
-      this.useGraphQL = localStorageFlag === 'true';
-    } else {
-      // Default to false for now (REST), can be changed to true later
-      this.useGraphQL = false;
-    }
+    this.useGraphQL = true;
 
     console.log(`[API] Using ${this.useGraphQL ? 'GraphQL' : 'REST'} API`);
   }
@@ -111,6 +104,12 @@ export class ApiService {
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Inject test auth header if flag is set (for E2E tests)
+    const isTestAuth = localStorage.getItem('TEST_AUTH') === 'true';
+    if (isTestAuth) {
+      headers['x-test-auth'] = 'true';
     }
 
     // Simple incremental retry to reduce transient "Failed to fetch" errors
@@ -248,7 +247,23 @@ export class ApiService {
    * Generate from raw content (text or URLs)
    */
   async generateFromContent(payload: { type: 'text' | 'url', content: string | string[], topic: string }) {
-    return this.post('/generate/from-content', payload);
+    // Map to GraphQL input
+    const input = {
+      topic: payload.topic,
+      inputType: payload.type,
+      content: payload.content
+    };
+
+    try {
+      const result = await graphqlService.generateFlashcards(input);
+      return {
+        success: true,
+        cards: result.cards
+      };
+    } catch (error) {
+      console.error('[API] generateFromContent failed via GraphQL', error);
+      throw error;
+    }
   }
 
   async saveDeck(deck: any) {
@@ -266,15 +281,11 @@ export class ApiService {
     if (cached) return cached;
 
     let result: any;
-    if (this.useGraphQL) {
-      try {
-        result = await graphqlService.getDecks();
-      } catch (error) {
-        console.warn('[API] GraphQL getDecks failed, falling back to REST', error);
-        result = await this.get('/decks');
-      }
-    } else {
-      result = await this.get('/decks');
+    try {
+      result = await graphqlService.getDecks();
+    } catch (error) {
+      console.error('[API] GraphQL getDecks failed', error);
+      throw error;
     }
 
     if (result && result.history) {
@@ -289,18 +300,7 @@ export class ApiService {
    * Create a deck - supports both REST and GraphQL
    */
   async createDeck(deck: DeckPayload): Promise<DeckResponse> {
-    let result: DeckResponse;
-    if (this.useGraphQL) {
-      try {
-        result = await graphqlService.createDeck(deck as any);
-      } catch (error) {
-        console.warn('[API] GraphQL createDeck failed, falling back to REST', error);
-        result = await this.post('/decks', deck) as DeckResponse;
-      }
-    } else {
-      result = await this.post('/decks', deck) as DeckResponse;
-    }
-
+    const result = await graphqlService.createDeck(deck as any);
     await cacheService.invalidatePattern('decks-list');
     return result;
   }
@@ -313,18 +313,7 @@ export class ApiService {
     const cached = await cacheService.get<QuizHistoryEntry[]>(cacheKey);
     if (cached) return cached;
 
-    let result: QuizHistoryEntry[];
-    if (this.useGraphQL) {
-      try {
-        result = await graphqlService.getQuizHistory();
-      } catch (error) {
-        console.warn('[API] GraphQL getQuizHistory failed, falling back to REST', error);
-        result = await this.get('/quiz/history') as QuizHistoryEntry[];
-      }
-    } else {
-      result = await this.get('/quiz/history') as QuizHistoryEntry[];
-    }
-
+    const result = await graphqlService.getQuizHistory();
     await cacheService.set(cacheKey, result);
     return result;
   }
@@ -337,18 +326,8 @@ export class ApiService {
     const cached = await cacheService.get<{ success: boolean; quizzes: QuizSummary[] }>(cacheKey);
     if (cached) return cached;
 
-    let result: { success: boolean; quizzes: QuizSummary[] };
-    if (this.useGraphQL) {
-      try {
-        const quizzes = await graphqlService.getAllQuizzes();
-        result = { success: true, quizzes };
-      } catch (error) {
-        console.warn('[API] GraphQL getAllQuizzes failed, falling back to REST', error);
-        result = await this.get('/quiz/list/all') as { success: boolean; quizzes: QuizSummary[] };
-      }
-    } else {
-      result = await this.get('/quiz/list/all') as { success: boolean; quizzes: QuizSummary[] };
-    }
+    const quizzes = await graphqlService.getAllQuizzes();
+    const result = { success: true, quizzes };
 
     await cacheService.set(cacheKey, result);
     return result;
@@ -362,18 +341,8 @@ export class ApiService {
     const cached = await cacheService.get<{ success: boolean; quiz: QuizDetail | null }>(cacheKey);
     if (cached) return cached;
 
-    let result: { success: boolean; quiz: QuizDetail | null };
-    if (this.useGraphQL) {
-      try {
-        const quiz = await graphqlService.getQuiz(id);
-        result = { success: true, quiz };
-      } catch (error) {
-        console.warn('[API] GraphQL getQuiz failed, falling back to REST', error);
-        result = await this.get(`/quiz/${id}`) as { success: boolean; quiz: QuizDetail | null };
-      }
-    } else {
-      result = await this.get(`/quiz/${id}`) as { success: boolean; quiz: QuizDetail | null };
-    }
+    const quiz = await graphqlService.getQuiz(id);
+    const result = { success: true, quiz };
 
     await cacheService.set(cacheKey, result);
     return result;
@@ -390,45 +359,19 @@ export class ApiService {
   }
 
   private async _createQuizInternal(params: CreateQuizParams): Promise<{ success?: boolean; quiz?: QuizSummary; quizId?: string }> {
-    if (this.useGraphQL) {
-      try {
-
-        // Note: GraphQL createQuiz expects cards as objects, but REST uses IDs.
-
-        // If params has flashcardIds, we can't easily use GraphQL createQuiz unless we have the card data.
-        // However, the frontend usually has the card data when calling this.
-
-        // Let's assume for now we fallback to REST if flashcardIds are present but no card objects,
-        // OR we update the caller to pass card objects.
-
-        // Actually, let's just use REST for flashcard-based quiz for now if GraphQL input is complex,
-        // but for topic-based it's easy.
-
-        if (params.topic && !params.flashcardIds) {
-          const quiz = await graphqlService.createQuiz({
-            topic: params.topic,
-            count: params.count
-          });
-          return { success: true, quiz };
-        }
-
-        // Fallback for flashcard-based quiz until we map data
-        console.warn('[API] GraphQL createQuiz from flashcards not fully implemented, falling back to REST');
-        return this.post('/quiz/create-from-flashcards', params);
-
-      } catch (error) {
-        console.warn('[API] GraphQL createQuiz failed, falling back to REST', error);
-        if (params.flashcardIds) {
-          return this.post('/quiz/create-from-flashcards', params);
-        }
-        return this.post('/quiz/create-from-topic', params);
-      }
+    try {
+      // Map params including cardIds
+      const quiz = await graphqlService.createQuiz({
+        topic: params.topic,
+        count: params.count,
+        cards: params.flashcards,
+        cardIds: params.flashcardIds
+      });
+      return { success: true, quiz };
+    } catch (error) {
+      console.error('[API] GraphQL createQuiz failed', error);
+      throw error;
     }
-
-    if (params.flashcardIds) {
-      return this.post('/quiz/create-from-flashcards', params);
-    }
-    return this.post('/quiz/create-from-topic', params);
   }
 
   /**
@@ -442,44 +385,36 @@ export class ApiService {
   }
 
   private async _submitQuizInternal(quizId: string, data: { answers?: Record<string, string> | Array<{ questionId: string; answer: string }>; results?: Array<{ cardId?: string; id?: string; userAnswer: string }> }) {
-    if (this.useGraphQL) {
-      try {
-        // GraphQL expects answers array: { questionId, answer }
-        // data might be the full result object from client-side calculation
-        // We need to extract answers if possible, or change caller.
-
-        // If data has 'answers' map/record, convert to array
-        let answers: Array<{ questionId: string; answer: string }> = [];
-        if (data.answers && !Array.isArray(data.answers)) {
-          answers = Object.entries(data.answers).map(([qId, ans]) => ({
-            questionId: qId,
-            answer: ans
+    try {
+      // GraphQL expects answers array: { questionId, answer }
+      let answers: Array<{ questionId: string; answer: string }> = [];
+      if (data.answers && !Array.isArray(data.answers)) {
+        answers = Object.entries(data.answers).map(([qId, ans]) => ({
+          questionId: qId,
+          answer: ans
+        }));
+      } else if (Array.isArray(data.answers)) {
+        answers = data.answers as Array<{ questionId: string; answer: string }>;
+      } else if (data.results && Array.isArray(data.results)) {
+        // Extract from QuizModel results
+        answers = data.results
+          .filter(r => r.cardId || r.id)
+          .map(r => ({
+            questionId: (r.cardId || r.id) as string,
+            answer: r.userAnswer
           }));
-        } else if (Array.isArray(data.answers)) {
-          answers = data.answers as Array<{ questionId: string; answer: string }>;
-        } else if (data.results && Array.isArray(data.results)) {
-          // Extract from QuizModel results
-          answers = data.results
-            .filter(r => r.cardId || r.id)
-            .map(r => ({
-              questionId: (r.cardId || r.id) as string, // Use cardId or id as questionId
-              answer: r.userAnswer
-            }));
-        }
-
-        if (answers.length > 0) {
-          const result = await graphqlService.submitQuizAnswers(quizId, answers);
-          return { success: true, ...result };
-        }
-
-        // If no answers to submit (e.g. just saving history), fallback?
-      } catch (error) {
-        console.warn('[API] GraphQL submitQuiz failed, falling back to REST', error);
-        return this.post('/quiz/history', data);
       }
+
+      if (answers.length > 0) {
+        const result = await graphqlService.submitQuizAnswers(quizId, answers);
+        return { success: true, ...result };
+      }
+
+      throw new Error('No answers to submit or client-side grading not supported via GraphQL yet');
+    } catch (error) {
+      console.error('[API] GraphQL submitQuiz failed', error);
+      throw error;
     }
-    // REST legacy: save client-calculated result
-    return this.post('/quiz/history', data);
   }
 
   /**
@@ -494,40 +429,31 @@ export class ApiService {
     preferredRuntime?: string;
     llmConfig?: any;
   }) {
-    if (this.useGraphQL) {
-      try {
-        const input = {
-          topic: params.topic,
-          count: params.count,
-          mode: params.mode,
-          knowledgeSource: params.knowledgeSource,
-          parentTopic: params.parentTopic
-          // GraphQL schema might not support llmConfig/runtime yet, so we might need to fallback to REST
-          // for custom LLM config if we want to support it strictly via GraphQL.
-          // For now, let's assume if llmConfig is present, we fallback to REST or update GraphQL later.
-        };
+    try {
+      const input = {
+        topic: params.topic,
+        count: params.count,
+        mode: params.mode,
+        knowledgeSource: params.knowledgeSource,
+        parentTopic: params.parentTopic
+        // Note: llmConfig/preferredRuntime not fully passed to GraphQL yet unless we expand schema further.
+        // Assuming defaults or handled by backend flags/context.
+      };
 
-        if (params.llmConfig || params.preferredRuntime) {
-          // Fallback to REST to ensure custom config is respected until GraphQL schema is updated
-          return this.post('/generate', params);
-        }
+      const result: any = await graphqlService.generateFlashcards(input);
 
-        const result: any = await graphqlService.generateFlashcards(input);
-
-        // GraphQL returns { cards, jobId, recommendedTopics }
-        // Convert to REST-compatible format
-        return {
-          cards: result.cards,
-          jobId: result.jobId,
-          recommendedTopics: result.recommendedTopics,
-          success: true
-        };
-      } catch (error) {
-        console.warn('[API] GraphQL generateFlashcards failed, falling back to REST', error);
-        return this.post('/generate', params);
-      }
+      // GraphQL returns { cards, jobId, recommendedTopics }
+      // Convert to REST-compatible format
+      return {
+        cards: result.cards,
+        jobId: result.jobId,
+        recommendedTopics: result.recommendedTopics,
+        success: true
+      };
+    } catch (error) {
+      console.error('[API] GraphQL generateFlashcards failed', error);
+      throw error;
     }
-    return this.post('/generate', params);
   }
 
   async generateFlashcardsFromText(
@@ -568,31 +494,21 @@ export class ApiService {
    * Get job status - supports both REST and GraphQL
    */
   async getJobStatus(jobId: string): Promise<JobStatus | null> {
-    if (this.useGraphQL) {
-      try {
-        const job = await graphqlService.getJobStatus(jobId);
-        if (!job) return null;
-        // Convert to REST-compatible format
-        return {
-          id: job.id,
-          status: job.status,
-          result: job.result,
-          error: job.error,
-          progress: job.progress
-        };
-      } catch (error) {
-        console.warn('[API] GraphQL getJobStatus failed, falling back to REST', error);
-        // Fall through to REST
-      }
+    try {
+      const job = await graphqlService.getJobStatus(jobId);
+      if (!job) return null;
+      // Convert to REST-compatible format
+      return {
+        id: job.id,
+        status: job.status,
+        result: job.result,
+        error: job.error,
+        progress: job.progress
+      };
+    } catch (error) {
+      console.error('[API] GraphQL getJobStatus failed', error);
+      throw error;
     }
-    // REST returns { success: true, data: { status, result, ... } }
-    // We need to unwrap the data field
-    const response = await this.get(`/jobs/${jobId}`) as any;
-    if (response?.data) {
-      return response.data as JobStatus;
-    }
-    // Fallback for non-wrapped responses
-    return response as JobStatus;
   }
 
   /**
@@ -660,15 +576,7 @@ export class ApiService {
    * Health check - GraphQL or REST
    */
   async healthCheck() {
-    if (this.useGraphQL) {
-      try {
-        return await graphqlService.healthCheck();
-      } catch (error) {
-        console.warn('[API] GraphQL health check failed, falling back to REST', error);
-        return this.get('/health');
-      }
-    }
-    return this.get('/health');
+    return graphqlService.healthCheck();
   }
 }
 

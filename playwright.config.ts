@@ -24,7 +24,11 @@ export default defineConfig({
     webServer: {
         command: 'npm run dev',
         url: 'http://localhost:3000',
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: false,
         timeout: 120000,
+        env: {
+            TEST_AUTH_TOKEN: 'test-token',
+            NODE_ENV: 'test'
+        }
     },
 });

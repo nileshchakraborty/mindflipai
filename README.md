@@ -30,6 +30,13 @@ graph TB
         STUDY["Study Service"]
         QUEUE["BullMQ Queue"]
         CACHE["Redis Cache"]
+        RAG["RAG Service"]
+    end
+
+    subgraph "Data Layer"
+        VECTOR["Upstash Vector<br/>(Embeddings)"]
+        GRAPH["Neo4j<br/>(Knowledge Graph)"]
+        POSTGRES["PostgreSQL<br/>(Users/Decks)"]
     end
 
     subgraph "AI Layer"
@@ -56,6 +63,12 @@ graph TB
     STUDY --> QUEUE
     STUDY --> CACHE
     STUDY --> HYBRID
+    STUDY --> RAG
+
+    %% RAG Pipeline
+    RAG --> VECTOR
+    RAG --> GRAPH
+    RAG --> HYBRID
 
     %% AI Routing
     HYBRID -->|Preferred| OLLAMA
@@ -246,16 +259,23 @@ curl -X POST /graphql -d '{
 - ✅ Validation & Self-Repair: Generated flashcards are validated for strict JSON/question-answer shape; if invalid/insufficient, the system re-prompts the runtime to repair before returning.
 - 📏 Count Enforcement: Returned flashcards are trimmed/padded to match the requested count; client-side generation auto-falls back to backend if underfilled.
 - 🛡️ Runtime fallback ladder: Preferred runtime (configurable) → alternate runtime → local quiz fallback to prevent failures when an LLM is unavailable
-- 📱 **Mobile-Friendly**: Swipe gestures for flashcard study (left/right) used on mobile devices
+- 📱 **Mobile-Responsive**: Swipe gestures for flashcard study; collapsible header with hamburger menu on mobile
 - 🗂️ **Deck History**: Persistent deck history that survives page reloads
 - 🎓 **Quiz from Flashcards**: Select specific cards from a deck to create a custom quiz
+
+### RAG Pipeline (NEW)
+- 🧠 **Retrieval-Augmented Generation** for context-aware flashcard generation
+- 📊 **Hybrid Search**: Combines vector similarity (Upstash) + graph traversal (Neo4j)
+- 🔗 **Knowledge Graph**: Entities and relationships extracted from ingested content
+- 📚 **Content Ingestion**: Upload PDFs/text → chunked → embedded → stored in vector DB + graph
+- ⚡ **LangGraph Orchestration**: Multi-step RAG workflow with state management
 
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 - **Node.js** ≥ 18 (tested with v22)
-- **Redis** (for queue management)
+- **Docker** (recommended for local databases)
 - **Ollama** (optional, for local LLM - default model: llama3.2:latest)
 
 > **Note**: This project uses `tsx` for TypeScript execution in development mode, which provides better compatibility with Node.js v22+ and ESM modules.
@@ -273,7 +293,23 @@ curl -X POST /graphql -d '{
    npm install
    ```
 
-3. **Configure Environment**
+3. **Start Docker Services** (Recommended)
+   ```bash
+   # Start PostgreSQL, Neo4j, Qdrant (Vector DB), and Redis
+   docker compose up -d
+   
+   # Verify services are running
+   docker compose ps
+   ```
+   
+   | Service | Port | Credentials |
+   |---------|------|-------------|
+   | PostgreSQL | 5432 | `flashcard` / `flashcard_dev` |
+   | Neo4j | 7687, 7474 | `neo4j` / `flashcard_dev` |
+   | Qdrant | 6333, 6334 | N/A |
+   | Redis | 6379 | N/A |
+
+4. **Configure Environment**
    ```bash
    cp .env.example .env
    ```
@@ -294,7 +330,12 @@ curl -X POST /graphql -d '{
    OLLAMA_BASE_URL=http://localhost:11434
    OLLAMA_MODEL=llama3.2:latest
    
-   # Redis (for queue)
+   # Neo4j (Knowledge Graph for RAG)
+   NEO4J_URI=bolt://localhost:7687
+   NEO4J_USER=neo4j
+   NEO4J_PASSWORD=flashcard_dev
+   
+   # Redis (for queue) - auto-configured with Docker
    REDIS_HOST=localhost
    REDIS_PORT=6379
    
@@ -336,6 +377,41 @@ export USE_MCP_SERVER=true
 # Start in development mode
 npm run dev
 ```
+
+### Deploying to Vercel
+
+The app is designed to run on Vercel's serverless platform:
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
+```
+
+**Required Environment Variables on Vercel:**
+
+| Variable | Description |
+|----------|-------------|
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth secret |
+| `JWE_SECRET_KEY` | 32-char encryption key |
+| `SERPER_API_KEY` | Serper.dev API key |
+| `OLLAMA_BASE_URL` | Remote Ollama endpoint (e.g., ngrok tunnel) |
+
+**Optional RAG Variables (for RAG features):**
+
+| Variable | Service | Description |
+|----------|---------|-------------|
+| `NEO4J_URI` | [Neo4j Aura](https://neo4j.com/cloud/aura/) | `neo4j+s://xxx.databases.neo4j.io` |
+| `NEO4J_USER` | Neo4j Aura | Usually `neo4j` |
+| `NEO4J_PASSWORD` | Neo4j Aura | Your Aura password |
+| `UPSTASH_VECTOR_REST_URL` | [Upstash](https://upstash.com) | Vector REST endpoint |
+| `UPSTASH_VECTOR_REST_TOKEN` | Upstash | Vector API token |
+| `REDIS_URL` | [Upstash Redis](https://upstash.com) | For queue persistence |
+
+> **Note**: Without RAG variables, the app works in "basic mode" using web search for context. With RAG variables, the app enables knowledge graph and vector search for enhanced flashcard generation.
 
 - **API Root**: `http://localhost:3000/api`
 - **Swagger UI**: `http://localhost:3000/api-docs`

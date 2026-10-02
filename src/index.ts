@@ -22,6 +22,8 @@ import { MetricsService } from './core/services/MetricsService.js';
 import { MCPClientWrapper } from './adapters/secondary/mcp/MCPClientWrapper.js';
 import { HybridOllamaAdapter } from './adapters/secondary/ollama/HybridOllamaAdapter.js';
 import { HybridSerperAdapter } from './adapters/secondary/serper/HybridSerperAdapter.js';
+import { Neo4jAdapter } from './adapters/secondary/graph/Neo4jAdapter.js';
+import { RAGService } from './core/services/RAGService.js';
 
 dotenv.config();
 
@@ -145,6 +147,19 @@ async function initializeMCP(): Promise<MCPClientWrapper | null> {
 const mcpClient = await initializeMCP();
 const useMCP = mcpClient !== null;
 
+// Initialize GraphDB
+const neo4jAdapter = new Neo4jAdapter();
+await neo4jAdapter.initialize();
+
+// Initialize RAG Service
+let ragService: RAGService | undefined;
+if (vectorService && neo4jAdapter) {
+    // Check if we have valid Upstash logic (ignoring type mismatch for InMemory for now, assuming vectorService is sufficient interface)
+    ragService = new RAGService(vectorService as any, neo4jAdapter);
+    await ragService.initialize();
+    logger.info('🧠 RAG Service initialized');
+}
+
 const metricsService = new MetricsService('.metrics');
 logger.info('📊 Metrics service initialized');
 
@@ -181,7 +196,7 @@ const webContextCache = new CacheService<string>({
 });
 logger.info('🌐 Web context cache initialized (24hr TTL)');
 
-const studyService = new StudyService(aiAdapters, serperAdapter, fsAdapter, metricsService, webContextCache);
+const studyService = new StudyService(aiAdapters, serperAdapter, fsAdapter, metricsService, webContextCache, ragService);
 logger.info('🎓 Study service initialized with cache-first web search');
 
 // Initialize Queue Worker

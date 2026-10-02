@@ -8,9 +8,9 @@ import fs from 'fs';
 import path from 'path';
 
 // Mocks for heavy deps used in StudyService
-jest.mock('pdf-parse', () => ({ default: jest.fn().mockResolvedValue({ text: 'pdf text' }) }));
-jest.mock('tesseract.js', () => ({ default: { recognize: jest.fn().mockResolvedValue({ data: { text: 'image text' } }) } }));
-jest.mock('mammoth', () => ({ default: { extractRawText: jest.fn().mockResolvedValue({ value: 'doc text', messages: [] }) } }));
+jest.mock('pdf-parse', () => ({ default: jest.fn<any>().mockResolvedValue({ text: 'pdf text' }) }));
+jest.mock('tesseract.js', () => ({ default: { recognize: jest.fn<any>().mockResolvedValue({ data: { text: 'image text' } }) } }));
+jest.mock('mammoth', () => ({ default: { extractRawText: jest.fn<any>().mockResolvedValue({ value: 'doc text', messages: [] }) } }));
 jest.mock('xlsx', () => ({
   read: jest.fn().mockReturnValue({ SheetNames: ['Sheet1'], Sheets: { Sheet1: {} } }),
   utils: {
@@ -21,8 +21,8 @@ jest.mock('xlsx', () => ({
 const mockCards: Flashcard[] = [{ id: '1', front: 'Q1', back: 'A1', topic: 'Topic' }];
 
 const mockOllamaAdapter = {
-  generateFlashcardsFromText: jest.fn().mockResolvedValue(mockCards),
-  generateAdvancedQuiz: jest.fn().mockResolvedValue([{ question: 'q', correctAnswer: 'a' }]),
+  generateFlashcardsFromText: jest.fn<any>().mockResolvedValue(mockCards),
+  generateAdvancedQuiz: jest.fn<any>().mockResolvedValue([{ question: 'q', correctAnswer: 'a' }]),
   generateQuizFromFlashcards: jest.fn(),
   generateFlashcards: jest.fn(),
   generateSummary: jest.fn(),
@@ -49,8 +49,9 @@ describe('StudyService source tagging & scope', () => {
       { ollama: mockOllamaAdapter as any },
       mockSearchAdapter as any,
       mockStorageAdapter as any,
-      undefined,
-      undefined,
+      undefined, // metricsService
+      undefined, // webContextCache
+      undefined, // ragService
       true // disableAsyncRecommendations
     );
     service = studyServiceInstance;

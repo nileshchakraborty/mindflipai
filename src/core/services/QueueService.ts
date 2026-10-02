@@ -314,4 +314,110 @@ export class QueueService {
     async getJob(id: string) {
         return this.getJobStatus(id);
     }
+
+    /**
+     * Get Dead Letter Queue statistics
+     */
+    async getDLQStats(): Promise<{ count: number; oldestTimestamp?: number; newestTimestamp?: number }> {
+        if (this.isLocal) {
+            return { count: 0 };
+        }
+
+        try {
+            const jobs = await this.deadLetterQueue.getJobs(['waiting', 'delayed', 'active']);
+            if (jobs.length === 0) {
+                return { count: 0 };
+            }
+
+            const timestamps = jobs.map((j: any) => j.data?.timestamp || j.timestamp).filter(Boolean);
+            return {
+                count: jobs.length,
+                oldestTimestamp: Math.min(...timestamps),
+                newestTimestamp: Math.max(...timestamps)
+            };
+        } catch (error) {
+            logger.error('Failed to get DLQ stats', { error });
+            return { count: 0 };
+        }
+    }
+
+    /**
+     * Retry a job from the Dead Letter Queue
+     * @param dlqJobId The ID of the job in the DLQ
+     * @returns The new job ID in the main queue, or null if retry failed
+     */
+    async retryDLQJob(dlqJobId: string): Promise<string | null> {
+        if (this.isLocal) {
+            logger.warn('DLQ retry not supported in local mode');
+            return null;
+        }
+
+        try {
+            const dlqJob = await this.deadLetterQueue.getJob(dlqJobId);
+            if (!dlqJob) {
+                logger.warn('DLQ job not found', { dlqJobId });
+                return null;
+            }
+
+            // Re-add original job to main queue
+            const originalData = dlqJob.data.data as GenerateJobData;
+            const newJobId = await this.addGenerateJob(originalData);
+
+            // Remove from DLQ
+            await dlqJob.remove();
+            logger.info('DLQ job retried', { dlqJobId, newJobId });
+
+            return newJobId;
+        } catch (error) {
+            logger.error('Failed to retry DLQ job', { dlqJobId, error });
+            return null;
+        }
+    }
+
+    /**
+     * Purge all jobs from the Dead Letter Queue
+     * @returns Number of jobs purged
+     */
+    async purgeDLQ(): Promise<number> {
+        if (this.isLocal) {
+            return 0;
+        }
+
+        try {
+            const jobs = await this.deadLetterQueue.getJobs(['waiting', 'delayed', 'active', 'completed', 'failed']);
+            const count = jobs.length;
+
+            await this.deadLetterQueue.obliterate({ force: true });
+            logger.info('DLQ purged', { count });
+
+            return count;
+        } catch (error) {
+            logger.error('Failed to purge DLQ', { error });
+            return 0;
+        }
+    }
+
+    /**
+     * Get jobs from the Dead Letter Queue
+     * @param limit Max number of jobs to return
+     */
+    async getDLQJobs(limit: number = 10): Promise<Array<{ id: string; originalJobId: string; error: string; timestamp: number; data: GenerateJobData }>> {
+        if (this.isLocal) {
+            return [];
+        }
+
+        try {
+            const jobs = await this.deadLetterQueue.getJobs(['waiting', 'delayed'], 0, limit - 1);
+            return jobs.map((j: any) => ({
+                id: j.id,
+                originalJobId: j.data.originalJobId,
+                error: j.data.error,
+                timestamp: j.data.timestamp,
+                data: j.data.data
+            }));
+        } catch (error) {
+            logger.error('Failed to get DLQ jobs', { error });
+            return [];
+        }
+    }
 }

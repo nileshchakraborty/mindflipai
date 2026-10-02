@@ -12,6 +12,7 @@ type CreateQuizInput = {
         back: string;
         topic?: string;
     }>;
+    cardIds?: string[];
 };
 
 type SubmitAnswersArgs = {
@@ -86,13 +87,27 @@ export const quizResolvers = {
             let questions: QuizQuestion[] = [];
 
             try {
-                const cards = input.cards;
+                let cards = input.cards;
+
+                // If cardIds provided, fetch them from storage
+                if (input.cardIds && input.cardIds.length > 0 && (!cards || cards.length === 0)) {
+                    const storedCards = await context.flashcardStorage.getFlashcardsByIds(input.cardIds);
+                    if (storedCards.length > 0) {
+                        cards = storedCards.map(c => ({
+                            id: c.id,
+                            front: c.front,
+                            back: c.back,
+                            topic: c.topic
+                        }));
+                    }
+                }
+
                 const hasCards = Array.isArray(cards) && cards.length > 0;
-                const topic = input.topic ?? (hasCards ? cards[0]?.topic : undefined) ?? 'General Quiz';
-                const desiredCount = input.count ?? (hasCards ? Math.min(cards.length, 10) : 5);
+                const topic = input.topic ?? (hasCards ? cards![0]?.topic : undefined) ?? 'General Quiz';
+                const desiredCount = input.count ?? (hasCards ? Math.min(cards!.length, 10) : 5);
 
                 if (hasCards) {
-                    const normalized: Flashcard[] = cards.map((card) => ({
+                    const normalized: Flashcard[] = cards!.map((card) => ({
                         id: card.id,
                         front: card.front,
                         back: card.back,

@@ -30,7 +30,7 @@ export const flashcardResolvers = {
     Mutation: {
         generateFlashcards: async (
             _: unknown,
-            { input }: { input: { topic: string; count?: number; mode?: 'standard' | 'deep-dive'; knowledgeSource?: 'ai-only' | 'web-only' | 'ai-web'; parentTopic?: string } },
+            { input }: { input: { topic: string; count?: number; mode?: 'standard' | 'deep-dive'; knowledgeSource?: 'ai-only' | 'web-only' | 'ai-web'; parentTopic?: string; inputType?: string; content?: any } },
             context: GraphQLContext
         ) => {
             // Require authentication for generation
@@ -66,7 +66,27 @@ export const flashcardResolvers = {
                 };
             }
 
-            // Fallback to synchronous generation
+            // Handle content-based generation
+            if (input.inputType === 'text' && typeof input.content === 'string') {
+                const cards = await context.studyService.processRawText(input.content, input.topic);
+                return {
+                    cards: cards || [],
+                    jobId: null,
+                    recommendedTopics: []
+                };
+            }
+
+            if (input.inputType === 'url' && Array.isArray(input.content)) {
+                // Assuming content is array of strings
+                const cards = await context.studyService.processUrls(input.content as string[], input.topic);
+                return {
+                    cards: cards || [],
+                    jobId: null,
+                    recommendedTopics: []
+                };
+            }
+
+            // Fallback to synchronous generation (standard flow)
             const result = await context.studyService.generateFlashcards(
                 input.topic,
                 input.count || 10,

@@ -12,6 +12,9 @@ import { FlashcardCacheService } from '../src/core/services/FlashcardCacheServic
 import { WebLLMService } from '../src/core/services/WebLLMService.js';
 import { QuizStorageService } from '../src/core/services/QuizStorageService.js';
 import { FlashcardStorageService } from '../src/core/services/FlashcardStorageService.js';
+import { UpstashVectorService } from '../src/core/services/UpstashVectorService.js';
+import { Neo4jAdapter } from '../src/adapters/secondary/graph/Neo4jAdapter.js';
+import { RAGService } from '../src/core/services/RAGService.js';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 // @ts-ignore
@@ -56,8 +59,35 @@ try {
     const serperAdapter = new SerperAdapter(serperCache);
     const fsAdapter = new FileSystemAdapter();
 
-    // Initialize Core Service with Multiple Adapters and Metrics
-    const studyService = new StudyService(aiAdapters, serperAdapter, fsAdapter, metricsService);
+    // Initialize RAG Service (optional - requires cloud Neo4j Aura + Upstash Vector)
+    let ragService: RAGService | undefined = undefined;
+    const hasRagConfig = process.env.NEO4J_URI && process.env.UPSTASH_VECTOR_REST_URL;
+    if (hasRagConfig) {
+        try {
+            console.log('🧠 Initializing RAG Service for Vercel...');
+            const vectorService = new UpstashVectorService();
+            const graphService = new Neo4jAdapter();
+            await graphService.initialize();
+            ragService = new RAGService(vectorService, graphService);
+            await ragService.initialize();
+            console.log('✅ RAG Service initialized');
+        } catch (ragError: any) {
+            console.warn('⚠️ RAG Service initialization failed (optional):', ragError.message);
+            ragService = undefined;
+        }
+    } else {
+        console.log('ℹ️ RAG Service disabled (NEO4J_URI or UPSTASH_VECTOR_REST_URL not set)');
+    }
+
+    // Initialize Core Service with Multiple Adapters, Metrics, and optional RAG
+    const studyService = new StudyService(
+        aiAdapters,
+        serperAdapter,
+        fsAdapter,
+        metricsService,
+        undefined, // webContextCache
+        ragService
+    );
 
     // Initialize Primary Adapter (Server) with Core Service and required services
     const expressServer = new ExpressServer(

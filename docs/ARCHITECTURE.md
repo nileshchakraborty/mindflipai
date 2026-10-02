@@ -1,7 +1,7 @@
 # MindFlip AI - System Architecture
 
-**Last Updated**: 2025-12-09  
-**Version**: 2.1 (MCP-First Architecture & robust Queue)
+**Last Updated**: 2025-12-13  
+**Version**: 3.0 (RAG Architecture with Neo4j & Vector Search)
 
 ## High-Level Architecture
 
@@ -22,13 +22,16 @@ graph TB
         STUDY[Study Service]
         QUIZ[Quiz Service]
         AUTH[Auth Service]
+        RAG[RAG Service]
     end
 
     subgraph "Infrastructure"
-        QUEUE[BullMQ Queue]
+        QUEUE[BullMQ Queue + DLQ]
         CACHE[Flashcard Cache]
-        DB[(Local/Supabase DB)]
-        VECTOR[(Vector Store)]
+        POSTGRES[(PostgreSQL)]
+        VECTOR[(Upstash Vector)]
+        NEO4J[(Neo4j Graph)]
+        REDIS[(Redis)]
     end
 
     subgraph "AI & External Adapters"
@@ -38,8 +41,8 @@ graph TB
     end
 
     subgraph "External Systems"
-        OLLAMA[Ollama (Local)]
-        WEBLLM[WebLLM (Browser)]
+        OLLAMA[Ollama Local]
+        WEBLLM[WebLLM Browser]
         SERPER_API[Serper.dev]
         MCP_SERVER[MCP Server]
     end
@@ -58,8 +61,13 @@ graph TB
 
     STUDY --> QUEUE
     STUDY --> CACHE
-    STUDY --> DB
-    STUDY --> VECTOR
+    STUDY --> RAG
+    QUEUE --> REDIS
+
+    %% RAG Pipeline
+    RAG --> VECTOR
+    RAG --> NEO4J
+    RAG --> HYBRID
 
     %% Async Flow
     QUEUE --> STUDY
@@ -76,6 +84,66 @@ graph TB
 
     SERPER --> SERPER_API
 ```
+
+## RAG Pipeline Architecture
+
+The RAG (Retrieval-Augmented Generation) system enhances flashcard generation by providing relevant context from previously ingested content.
+
+```mermaid
+flowchart LR
+    subgraph "Ingestion"
+        INPUT[PDF/Text/URL]
+        CHUNK[Text Chunker]
+        EMBED[Embedder]
+    end
+
+    subgraph "Storage"
+        VECTOR[(Upstash Vector)]
+        GRAPH[(Neo4j Graph)]
+    end
+
+    subgraph "Retrieval"
+        QUERY[User Query]
+        VSEARCH[Vector Search]
+        GSEARCH[Graph Traversal]
+        MERGE[Context Merger]
+    end
+
+    subgraph "Generation"
+        LLM[LLM Adapter]
+        OUTPUT[Flashcards]
+    end
+
+    INPUT --> CHUNK
+    CHUNK --> EMBED
+    EMBED --> VECTOR
+    CHUNK --> GRAPH
+
+    QUERY --> VSEARCH
+    QUERY --> GSEARCH
+    VSEARCH --> VECTOR
+    GSEARCH --> GRAPH
+    VECTOR --> MERGE
+    GRAPH --> MERGE
+    MERGE --> LLM
+    LLM --> OUTPUT
+```
+
+### Key Components
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **RAGService** | TypeScript | Orchestrates ingestion and retrieval |
+| **RAGWorkflow** | LangGraph | Multi-step workflow with state management |
+| **Neo4jAdapter** | neo4j-driver | Knowledge graph operations |
+| **UpstashVectorService** | Upstash SDK | Vector embeddings and similarity search |
+
+### Data Flow
+
+1. **Ingestion**: Content is chunked, embedded, and stored in both vector DB and knowledge graph
+2. **Query**: User's topic is used for both semantic search (vector) and relationship traversal (graph)
+3. **Merge**: Results from both sources are combined into a unified context
+4. **Generate**: LLM generates flashcards with the enriched context
 
 ## Mobile App Architecture
 

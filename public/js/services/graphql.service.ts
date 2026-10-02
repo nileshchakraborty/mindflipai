@@ -9,7 +9,13 @@ class GraphQLService {
   private endpoint: string;
 
   constructor(endpoint: string = '/graphql') {
-    this.endpoint = endpoint;
+    // Resolve to absolute URL if in browser to prevent "Invalid URL" errors in Request constructor
+    if (typeof window !== 'undefined' && endpoint.startsWith('/')) {
+      this.endpoint = `${window.location.origin}${endpoint}`;
+    } else {
+      this.endpoint = endpoint;
+    }
+
     this.client = new GraphQLClient(this.endpoint, {
       headers: this.getHeaders()
     });
@@ -26,6 +32,11 @@ class GraphQLService {
     const token = localStorage.getItem('authToken');
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const isTestAuth = localStorage.getItem('TEST_AUTH') === 'true';
+    if (isTestAuth) {
+      headers['x-test-auth'] = 'true';
     }
 
     return headers;
@@ -247,7 +258,7 @@ class GraphQLService {
   /**
    * Create a quiz
    */
-  async createQuiz(input: { topic?: string; cards?: { id: string; front: string; back: string; topic?: string }[]; count?: number }): Promise<{ id: string; topic: string; questionCount: number; source: string; createdAt: string }> {
+  async createQuiz(input: { topic?: string; cards?: { id: string; front: string; back: string; topic?: string }[]; cardIds?: string[]; count?: number }): Promise<{ id: string; topic: string; questionCount: number; source: string; createdAt: string }> {
     const mutation = `
       mutation CreateQuiz($input: QuizInput!) {
         createQuiz(input: $input) {
@@ -295,6 +306,8 @@ class GraphQLService {
     mode?: string;
     knowledgeSource?: string;
     parentTopic?: string;
+    inputType?: string;
+    content?: any;
   }): Promise<{ cards: { id: string; front: string; back: string; topic: string }[] }> {
     const mutation = `
       mutation GenerateFlashcards($input: GenerateInput!) {

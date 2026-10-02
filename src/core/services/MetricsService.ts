@@ -8,7 +8,7 @@ import path from 'path';
 
 export interface GenerationMetric {
     runtime: 'ollama' | 'webllm';
-    knowledgeSource: 'ai-only' | 'web-only' | 'ai-web';
+    knowledgeSource: 'ai-only' | 'web-only' | 'ai-web' | 'rag';
     mode: 'standard' | 'deep-dive';
     topic: string;
     cardCount: number;
@@ -21,7 +21,7 @@ export interface GenerationMetric {
 
 export interface MetricFilters {
     runtime?: 'ollama' | 'webllm';
-    knowledgeSource?: 'ai-only' | 'web-only' | 'ai-web';
+    knowledgeSource?: 'ai-only' | 'web-only' | 'ai-web' | 'rag';
     startDate?: number;
     endDate?: number;
     success?: boolean;
