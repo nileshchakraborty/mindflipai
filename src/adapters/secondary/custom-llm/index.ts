@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import type { Flashcard, QuizQuestion } from '../../../core/domain/models.js';
 import type { LLMAdapter } from '../../../core/services/AdapterManager.js';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 
 /**
  * Custom LLM adapter for OpenAI-compatible APIs (Groq, Together, OpenRouter, etc.)
@@ -270,7 +270,7 @@ Return as JSON array: ["subtopic1", "subtopic2", ...]`;
             if (!Array.isArray(parsed)) throw new Error('Response is not an array');
 
             return parsed.map(item => ({
-                id: uuidv4(),
+                id: randomUUID(),
                 front: item.question || item.q || item.front || '',
                 back: item.answer || item.a || item.back || '',
                 topic
@@ -292,7 +292,7 @@ Return as JSON array: ["subtopic1", "subtopic2", ...]`;
             return parsed.map(item => {
                 const correctIdx = item.correctAnswer ?? 0;
                 return {
-                    id: uuidv4(),
+                    id: randomUUID(),
                     question: item.question || '',
                     options: item.options || [],
                     correctAnswer: item.options?.[correctIdx] || item.options?.[0] || ''
