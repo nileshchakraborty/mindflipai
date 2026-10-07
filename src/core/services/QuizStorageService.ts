@@ -291,7 +291,7 @@ export class QuizStorageService {
         return {
             ...attempt,
             totalQuestions: data.totalQuestions,
-            completedAt: new Date()
+            completedAt: new Date(attempt.timestamp)
         } as any;
     }
 
