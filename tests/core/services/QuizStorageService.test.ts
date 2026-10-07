@@ -194,9 +194,9 @@ describe('QuizStorageService', () => {
             // Verify attempt saved
             const attempts = service.getAttempts(quiz.id);
             expect(attempts).toHaveLength(1);
-            // completedAt may differ by a few ms; compare fields manually
+            // The returned attempt and stored attempt share the saved timestamp.
             expect({ ...attempts[0], completedAt: undefined }).toEqual({ ...attempt, completedAt: undefined });
-            expect(Math.abs(new Date(attempts[0].completedAt as any).getTime() - new Date(attempt.completedAt as any).getTime())).toBeLessThan(25);
+            expect(attempts[0].completedAt).toEqual(attempt.completedAt);
 
             // Verify in all quizzes list
             const allQuizzes = service.getAllQuizzes();
