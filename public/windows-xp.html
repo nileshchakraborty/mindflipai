@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Windows XP Web Desktop</title>
+  <link rel="stylesheet" href="/windows-xp.css" />
+</head>
+<body>
+  <div id="xp-root">
+    <canvas id="xp-wallpaper" aria-hidden="true"></canvas>
+
+    <div class="desktop" role="application">
+      <button class="desktop-icon" data-app="word" aria-label="Open Word">
+        <span class="icon">📝</span>
+        <span class="label">Word</span>
+      </button>
+      <button class="desktop-icon" data-app="excel" aria-label="Open Excel">
+        <span class="icon">📊</span>
+        <span class="label">Excel</span>
+      </button>
+      <button class="desktop-icon" data-app="powerpoint" aria-label="Open PowerPoint">
+        <span class="icon">📽️</span>
+        <span class="label">PowerPoint</span>
+      </button>
+      <button class="desktop-icon" data-app="paint" aria-label="Open Paint">
+        <span class="icon">🎨</span>
+        <span class="label">Paint</span>
+      </button>
+    </div>
+
+    <section class="window" id="window-word" data-app="word" aria-label="Word window">
+      <header class="window-title">
+        <span>Microsoft Word</span>
+        <div class="window-controls">
+          <button data-action="minimize" aria-label="Minimize">—</button>
+          <button data-action="close" aria-label="Close">✕</button>
+        </div>
+      </header>
+      <div class="window-toolbar">
+        <button data-command="bold"><strong>B</strong></button>
+        <button data-command="italic"><em>I</em></button>
+        <button data-command="underline"><span class="underline">U</span></button>
+        <button data-command="insertUnorderedList">• List</button>
+        <button data-command="insertOrderedList">1. List</button>
+        <button data-command="removeFormat">Clear</button>
+      </div>
+      <div class="window-content word-doc" contenteditable="true" spellcheck="true">
+        <h2>Welcome to Word</h2>
+        <p>Start typing here. Use the toolbar for quick formatting.</p>
+      </div>
+    </section>
+
+    <section class="window" id="window-excel" data-app="excel" aria-label="Excel window">
+      <header class="window-title">
+        <span>Microsoft Excel</span>
+        <div class="window-controls">
+          <button data-action="minimize" aria-label="Minimize">—</button>
+          <button data-action="close" aria-label="Close">✕</button>
+        </div>
+      </header>
+      <div class="window-toolbar">
+        <span class="formula-label">Formula:</span>
+        <input id="excel-formula" type="text" placeholder="=A1+B1" readonly />
+      </div>
+      <div class="window-content">
+        <div class="excel-grid" id="excel-grid" aria-label="Excel grid"></div>
+      </div>
+    </section>
+
+    <section class="window" id="window-powerpoint" data-app="powerpoint" aria-label="PowerPoint window">
+      <header class="window-title">
+        <span>Microsoft PowerPoint</span>
+        <div class="window-controls">
+          <button data-action="minimize" aria-label="Minimize">—</button>
+          <button data-action="close" aria-label="Close">✕</button>
+        </div>
+      </header>
+      <div class="window-content powerpoint">
+        <aside class="slides-panel">
+          <button id="add-slide">+ New Slide</button>
+          <div id="slides-list" class="slides-list"></div>
+        </aside>
+        <div class="slide-canvas" contenteditable="true" id="slide-canvas">
+          <h2>Click to edit your slide</h2>
+          <p>Use the left panel to add more slides.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="window" id="window-paint" data-app="paint" aria-label="Paint window">
+      <header class="window-title">
+        <span>Microsoft Paint</span>
+        <div class="window-controls">
+          <button data-action="minimize" aria-label="Minimize">—</button>
+          <button data-action="close" aria-label="Close">✕</button>
+        </div>
+      </header>
+      <div class="window-toolbar paint-toolbar">
+        <label>
+          Color
+          <input type="color" id="paint-color" value="#1e40af" />
+        </label>
+        <label>
+          Brush
+          <input type="range" id="paint-size" min="2" max="30" value="6" />
+        </label>
+        <button id="paint-clear">Clear</button>
+      </div>
+      <div class="window-content paint-area">
+        <canvas id="paint-canvas" width="640" height="400"></canvas>
+      </div>
+    </section>
+
+    <div class="taskbar" role="navigation">
+      <button id="start-button" class="start-button" aria-expanded="false">Start</button>
+      <div id="taskbar-apps" class="taskbar-apps"></div>
+      <div id="clock" class="taskbar-clock"></div>
+    </div>
+
+    <nav id="start-menu" class="start-menu" aria-hidden="true">
+      <h3>Programs</h3>
+      <button data-app="word">Word</button>
+      <button data-app="excel">Excel</button>
+      <button data-app="powerpoint">PowerPoint</button>
+      <button data-app="paint">Paint</button>
+    </nav>
+  </div>
+
+  <script src="/windows-xp.js"></script>
+</body>
+</html>
