@@ -86,7 +86,7 @@
     "ws": "^8.18.3",
     "xlsx": "^0.18.5",
     "yamljs": "^0.3.0",
-    "zod": "^4.1.13"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
